@@ -1,51 +1,35 @@
-use std::collections::VecDeque;
-
 #[derive(Debug, PartialEq, Eq, Clone)]
-pub enum TokenKind {
-    // Keywords
-    Let,
-    If,
-    Else,
-    While,
-    Fn,
 
+pub enum TokenKind {
     // Symbols
     Plus,
     Minus,
     Star,
     Slash,
     Equal,
-    DoubleEqual,
-    Semicolon,
-    Comma,
     LParen,
     RParen,
-    LBrace,
-    RBrace,
 
-    // Literals
-    Identifier,
     Number,
-    StringLiteral,
 
-    // Special
     Eof,
-    Any,
     Unknown, // For unexpected characters
 }
 
-#[derive(Debug, PartialEq, Eq, Clone)]
+#[derive(Debug, PartialEq, Clone)]
 struct Token {
     kind: TokenKind,
     lexeme: String,
+    value: f64,
 }
+
+type TK = TokenKind;
 
 struct Lexer<'a> {
     input: &'a str,
     iter: std::str::CharIndices<'a>,
     current_char: Option<(usize, char)>, // (position, current character)
     tokens: Vec<Token>,
-    expected_queue: VecDeque<Vec<TokenKind>>,
 }
 
 impl<'a> Lexer<'a> {
@@ -53,13 +37,11 @@ impl<'a> Lexer<'a> {
         let mut iter = input.char_indices();
         let current_char = iter.next();
         let tokens = Vec::new();
-        let expected_queue = VecDeque::new();
         Lexer {
             input,
             iter,
             current_char,
             tokens,
-            expected_queue,
         }
     }
 
@@ -70,27 +52,6 @@ impl<'a> Lexer<'a> {
     fn advance_char_n(&mut self, n: usize) {
         for _ in 0..n {
             self.current_char = self.iter.next();
-        }
-    }
-
-    fn expect_one_of(&self, expected: Vec<TokenKind>) -> Result<(), String> {
-        if let Some(last_token) = self.tokens.last() {
-            if expected.iter().any(|t| t == &TokenKind::Any) {
-                return Ok(());
-            }
-
-            let last_token_kind = last_token.kind.clone();
-
-            if expected.iter().any(|t| t == &last_token_kind) {
-                Ok(())
-            } else {
-                Err(format!(
-                    "Expected one of {:?}, found {:?}",
-                    expected, last_token
-                ))
-            }
-        } else {
-            Err("No token found".to_string())
         }
     }
 
@@ -108,103 +69,55 @@ impl<'a> Lexer<'a> {
     fn parse_token(&mut self) -> Result<Token, String> {
         if let Some((start, c)) = self.current_char {
             let remaining = &self.input[start..];
-            println!("{remaining}");
 
-            if remaining.starts_with("let") {
-                self.advance_char_n(3);
-                Ok(Token {
-                    kind: TokenKind::Let,
-                    lexeme: "let".into(),
-                })
-            } else if c == '=' {
+            if c == '=' {
                 self.advance_char();
                 Ok(Token {
-                    kind: TokenKind::Equal,
+                    kind: TK::Equal,
                     lexeme: "=".into(),
+                    value: 0.0,
                 })
             } else if c == '+' {
                 self.advance_char();
                 Ok(Token {
-                    kind: TokenKind::Plus,
+                    kind: TK::Plus,
                     lexeme: "+".into(),
+                    value: 0.0,
                 })
             } else if c == '-' {
                 self.advance_char();
                 Ok(Token {
-                    kind: TokenKind::Minus,
+                    kind: TK::Minus,
                     lexeme: "-".into(),
+                    value: 0.0,
                 })
             } else if c == '*' {
                 self.advance_char();
                 Ok(Token {
-                    kind: TokenKind::Star,
+                    kind: TK::Star,
                     lexeme: "*".into(),
+                    value: 0.0,
                 })
             } else if c == '/' {
                 self.advance_char();
                 Ok(Token {
-                    kind: TokenKind::Slash,
+                    kind: TK::Slash,
                     lexeme: "/".into(),
+                    value: 0.0,
                 })
             } else if c == '(' {
                 self.advance_char();
                 Ok(Token {
-                    kind: TokenKind::LParen,
+                    kind: TK::LParen,
                     lexeme: "(".into(),
+                    value: 0.0,
                 })
             } else if c == ')' {
                 self.advance_char();
                 Ok(Token {
-                    kind: TokenKind::RParen,
+                    kind: TK::RParen,
                     lexeme: ")".into(),
-                })
-            } else if c == '{' {
-                self.advance_char();
-                Ok(Token {
-                    kind: TokenKind::LBrace,
-                    lexeme: "{".into(),
-                })
-            } else if c == '}' {
-                self.advance_char();
-                Ok(Token {
-                    kind: TokenKind::RBrace,
-                    lexeme: "}".into(),
-                })
-            } else if c == ',' {
-                self.advance_char();
-                Ok(Token {
-                    kind: TokenKind::Comma,
-                    lexeme: ",".into(),
-                })
-            } else if remaining.starts_with("if") {
-                self.advance_char_n(2);
-                Ok(Token {
-                    kind: TokenKind::If,
-                    lexeme: "if".into(),
-                })
-            } else if remaining.starts_with("else") {
-                self.advance_char_n(4);
-                Ok(Token {
-                    kind: TokenKind::Else,
-                    lexeme: "else".into(),
-                })
-            } else if remaining.starts_with("while") {
-                self.advance_char_n(5);
-                Ok(Token {
-                    kind: TokenKind::While,
-                    lexeme: "while".into(),
-                })
-            } else if remaining.starts_with("fn") {
-                self.advance_char_n(2);
-                Ok(Token {
-                    kind: TokenKind::Fn,
-                    lexeme: "fn".into(),
-                })
-            } else if c == ';' {
-                self.advance_char();
-                Ok(Token {
-                    kind: TokenKind::Semicolon,
-                    lexeme: ";".into(),
+                    value: 0.0,
                 })
             } else if c.is_ascii_digit() {
                 let mut end = start;
@@ -219,38 +132,20 @@ impl<'a> Lexer<'a> {
                     }
                 }
                 Ok(Token {
-                    kind: TokenKind::Number,
+                    kind: TK::Number,
                     lexeme: self.input[start..end].to_string(),
-                })
-            } else if c.is_alphanumeric() {
-                let mut end = start;
-
-                loop {
-                    match self.current_char {
-                        Some((index, c)) if c.is_alphanumeric() => {
-                            end = index + c.len_utf8();
-                            self.advance_char();
-                        }
-                        _ => break,
-                    }
-                }
-                Ok(Token {
-                    kind: TokenKind::Identifier,
-                    lexeme: self.input[start..end].to_string(),
+                    value: self.input[start..end].to_string().parse().unwrap(),
                 })
             } else {
                 Err(format!("Unknown token at {start}"))
             }
         } else {
             Ok(Token {
-                kind: TokenKind::Eof,
+                kind: TK::Eof,
                 lexeme: String::new(),
+                value: 0.0,
             })
         }
-    }
-
-    fn queue_expected(&mut self, expected_one_of: Vec<TokenKind>) {
-        self.expected_queue.push_back(expected_one_of);
     }
 
     fn tokenize(&mut self) -> Result<Vec<Token>, String> {
@@ -262,70 +157,7 @@ impl<'a> Lexer<'a> {
 
             self.tokens.push(token.clone());
 
-            println!("Token: {:?}", token);
-
-            if let Some(expected) = self.expected_queue.pop_front() {
-                self.expect_one_of(expected)?;
-            }
-
-            if token.kind == TokenKind::Semicolon {
-                self.expected_queue.clear();
-            }
-
-            if self.expected_queue.is_empty() {
-                match token.kind {
-                    TokenKind::Let => {
-                        self.queue_expected([TokenKind::Identifier].into());
-                        self.queue_expected([TokenKind::Semicolon, TokenKind::Equal].into());
-                        self.queue_expected(
-                            [
-                                TokenKind::Identifier,
-                                TokenKind::Number,
-                                TokenKind::StringLiteral,
-                            ]
-                            .into(),
-                        );
-                    }
-                    TokenKind::Semicolon => {
-                        self.queue_expected(
-                            [
-                                TokenKind::Let,
-                                TokenKind::If,
-                                TokenKind::While,
-                                TokenKind::Eof,
-                                TokenKind::Identifier,
-                            ]
-                            .into(),
-                        );
-                    }
-                    TokenKind::Identifier | TokenKind::Number => {
-                        self.queue_expected(
-                            [
-                                TokenKind::Semicolon,
-                                TokenKind::Equal,
-                                TokenKind::Plus,
-                                TokenKind::Minus,
-                                TokenKind::Star,
-                                TokenKind::Slash,
-                            ]
-                            .into(),
-                        );
-                        self.queue_expected(
-                            [
-                                TokenKind::Identifier,
-                                TokenKind::Number,
-                                TokenKind::StringLiteral,
-                            ]
-                            .into(),
-                        );
-                    }
-
-                    _ => {}
-                }
-                println!("{:?}", self.expected_queue);
-            }
-
-            if token.kind == TokenKind::Eof {
+            if token.kind == TK::Eof {
                 break;
             }
         }
@@ -334,13 +166,132 @@ impl<'a> Lexer<'a> {
     }
 }
 
-fn main() {
-    let s = "let a = 0; a = a + 1;".to_string();
-    let mut p = Lexer::new(&s);
-    match p.tokenize() {
-        Ok(_) => {}
-        Err(str) => {
-            println!("Error: {str}");
+enum ParseNode {
+    Number(f64),
+    BinaryOp {
+        left: Box<ParseNode>,
+        op: Token,
+        right: Box<ParseNode>,
+    },
+}
+
+impl ParseNode {
+    pub fn print(&self, indent: usize) {
+        let pad = "  ".repeat(indent);
+        match self {
+            ParseNode::Number(n) => {
+                println!("{}Number({})", pad, n);
+            }
+            ParseNode::BinaryOp { left, op, right } => {
+                println!("{}BinaryOp({:?})", pad, op.kind);
+                left.print(indent + 1);
+                right.print(indent + 1);
+            }
         }
-    };
+    }
+}
+
+struct Parser {
+    tokens: Vec<Token>,
+    cur_token: Token,
+    pos: usize,
+}
+
+impl Parser {
+    fn new(tokens: Vec<Token>) -> Self {
+        Parser {
+            tokens: tokens.clone(),
+            cur_token: tokens[0].clone(),
+            pos: 0,
+        }
+    }
+
+    fn expect_token(&mut self, expected: TokenKind) {
+        if self.cur_token.kind == expected {
+            self.advance_token();
+        } else {
+            panic!(
+                "Expected {:?}, but found {:?}",
+                expected, self.cur_token.kind
+            );
+        }
+    }
+
+    fn advance_token(&mut self) {
+        self.pos += 1;
+        self.cur_token = self.tokens[self.pos].clone();
+    }
+
+    fn parse_expression(&mut self) -> ParseNode {
+        let mut node = self.parse_term();
+        while self.cur_token.kind == TokenKind::Plus || self.cur_token.kind == TokenKind::Minus {
+            let op = self.cur_token.clone();
+            self.advance_token();
+            let right = self.parse_term();
+            node = ParseNode::BinaryOp {
+                left: Box::new(node),
+                op,
+                right: Box::new(right),
+            };
+        }
+        node
+    }
+
+    fn parse_term(&mut self) -> ParseNode {
+        let mut node = self.parse_factor();
+        while self.cur_token.kind == TokenKind::Star || self.cur_token.kind == TokenKind::Slash {
+            let op = self.cur_token.clone();
+            self.advance_token();
+            let right = self.parse_factor();
+            node = ParseNode::BinaryOp {
+                left: Box::new(node),
+                op,
+                right: Box::new(right),
+            };
+        }
+        node
+    }
+
+    fn parse_factor(&mut self) -> ParseNode {
+        match self.cur_token.kind {
+            TokenKind::Number => {
+                let n = self.cur_token.value;
+                self.advance_token();
+                return ParseNode::Number(n);
+            }
+            TokenKind::LParen => {
+                self.advance_token();
+                let expr = self.parse_expression();
+                self.expect_token(TokenKind::RParen);
+                expr
+            }
+            _ => panic!("Unexpected token"),
+        }
+    }
+}
+
+fn evaluate(expr: &ParseNode) -> f64 {
+    match expr {
+        ParseNode::Number(n) => *n,
+        ParseNode::BinaryOp { left, op, right } => {
+            let l = evaluate(left);
+            let r = evaluate(right);
+            match op.kind {
+                TokenKind::Plus => l + r,
+                TokenKind::Minus => l - r,
+                TokenKind::Star => l * r,
+                TokenKind::Slash => l / r,
+                _ => panic!("Unknown op"),
+            }
+        }
+    }
+}
+
+fn main() {
+    let input = "(1 + 4) * 8".to_string();
+    let mut lexer = Lexer::new(&input);
+    let tokens = lexer.tokenize().unwrap();
+
+    let mut parser = Parser::new(tokens);
+    println!("{}", evaluate(&parser.parse_expression()));
 }
